@@ -13,19 +13,21 @@ def parse_network_node(node):
     try:
         ssid = node.find("ssid", recursive=False)
         gps = node.find("gps-info", recursive=False)
-        net_dict = {
-            'lastupdate': ssid.attrs['last-time'],
-            'essid': ssid.essid.string,
-            'encryption': [e.string for e in ssid.find_all('encryption', recursive=False)],
-            'bssid': node.find("bssid", recursive=False).string,
-            'manuf': node.find("manuf", recursive=False).string,
-            'packets': int(ssid.packets.string),
-            'gps': {'lat': gps.find('avg-lat').string, 'lon': gps.find('avg-lon').string}
-        }
-        
-        return net_dict
+        if round(float(gps.find('avg-lat').string)) != 0 and round(float(gps.find('avg-lon').string)) != 0:
+            return {
+                'lastupdate': ssid.attrs['last-time'],
+                'essid': ssid.essid.string,
+                'encryption': [e.string for e in ssid.find_all('encryption', recursive=False)],
+                'bssid': node.find("bssid", recursive=False).string,
+                'manuf': node.find("manuf", recursive=False).string,
+                'packets': int(ssid.packets.string),
+                'gps': {'lat': gps.find('avg-lat').string, 'lon': gps.find('avg-lon').string}
+            }
+        else:
+            return None
+
     except:
-        return {}
+        return None
 
 def parse_netxml(filepath):
     print("[*] Parsing {}".format(filepath))
@@ -55,21 +57,25 @@ def generate_klm(networks, out):
     kml = soup.new_tag("kml", {"xmlns", "http://www.opengis.net/kml/2.2"})
     doc = soup.new_tag("Document")
     for k, n in networks.items():
-
         pm = soup.new_tag("Placemark")
         name = soup.new_tag("name")
-        name.string = "{}".format(n["essid"])
-
+        name.string = "{}".format(n["essid"])        
         description = soup.new_tag("description")
-        description.string = "bssid: {} \n manufactor: {} \n encryption {} \n lastupdate {} \n packets {}".format(n["bssid"], n["manuf"], " ".join(n["encryption"]), n["lastupdate"], n["packets"])
+        description.string = "bssid: {} \n manufactor: {} \n encryption {} \n lastupdate {} \n packets {} \n \n raw: {}".format(n["bssid"], n["manuf"], " ".join(n["encryption"]), n["lastupdate"], n["packets"], n)
         pt = soup.new_tag("Point")
         coo = soup.new_tag("coordinates")
         coo.string = "{},{}".format(n["gps"]["lon"], n["gps"]["lat"])
-        pt.append(coo)
-        pm.append(name)
-        pm.append(description)
-        pm.append(pt)
-        doc.append(pm)
+        
+        if n["encryption"] == ['None'] or n["encryption"] == []:
+            col = soup.new_tag("color")
+            col.string = "7CFC00"
+            pt.append(col)
+            
+            pt.append(coo)
+            pm.append(name)
+            pm.append(description)
+            pm.append(pt)
+            doc.append(pm)
 
     kml.append(doc)
     soup.append(kml)
@@ -98,7 +104,7 @@ def main():
 
     for nl in nnlist:
         for n in nl:
-            if 'bssid' in n and n['bssid']:                
+            if n and 'bssid' in n and n['bssid']:
                 if n['bssid'] not in unique_net:
                     unique_net[n['bssid']] = n
                 else:
