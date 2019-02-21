@@ -98,7 +98,7 @@ def main():
 
     for nl in nnlist:
         for n in nl:
-            if n['bssid']:                
+            if 'bssid' in n and n['bssid']:                
                 if n['bssid'] not in unique_net:
                     unique_net[n['bssid']] = n
                 else:
